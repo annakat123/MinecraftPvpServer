@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.pvpbot"
-version = "1.0.3"
+version = "1.0.4"
 
 repositories {
     mavenCentral()
@@ -20,6 +20,7 @@ dependencies {
     implementation("org.xerial:sqlite-jdbc:3.53.1.0") { exclude(group = "org.slf4j") }
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("io.papermc.paper:paper-api:26.2.build.+")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
