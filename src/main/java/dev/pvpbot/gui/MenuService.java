@@ -13,6 +13,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import java.util.*;
@@ -27,6 +28,7 @@ public final class MenuService implements Listener {
             "Combo",List.of("combo"), "Adaptation",List.of("adaptation"));
     private final DuelManager duels; private final DatabaseService database;
     public MenuService(DuelManager duels,DatabaseService database){this.duels=duels;this.database=database;}
+    @EventHandler public void command(PlayerCommandPreprocessEvent e){if(e.getMessage().trim().equalsIgnoreCase("/pvpbot")){e.setCancelled(true);openDuel(e.getPlayer());}}
     private static Map<String,List<String>> categories(){Map<String,List<String>> m=new LinkedHashMap<>();m.put("Latency",List.of("simulatedPingMs","baseReactionMs","reactionJitterMs"));m.put("Aim",List.of("aim.accuracy","aim.predictionStrength","aim.maxYawSpeed","aim.maxPitchSpeed"));m.put("Combat",List.of("reach.blocks","hitSelect.skill","hitSelect.chance","hitSelect.patience","hitSelect.counterHitPreference","hitSelect.cooldownDiscipline","hitSelect.baitPreference"));m.put("Movement",List.of("strafe.skill","strafe.chance","strafe.intensity","spacing.skill","spacing.preferredDistance","spacing.forwardPressure"));m.put("Criticals",List.of("criticals.skill","criticals.chance"));m.put("Sprint Reset",List.of("sprintReset.skill","wTap.skill","wTap.chance","sTap.skill","sTap.chance","jumpReset.skill","jumpReset.chance"));m.put("Combo",List.of("combo.chaseSkill","combo.escapeSkill"));m.put("Adaptation",List.of("adaptation.strength"));return Collections.unmodifiableMap(m);}
 
     @EventHandler public void interact(PlayerInteractEvent e){if(e.getItem()==null||e.getItem().getItemMeta()==null)return;String n=e.getItem().getItemMeta().getDisplayName();if(n.equals("§bDuel Selector")){e.setCancelled(true);openDuel(e.getPlayer());}else if(n.equals("§eBot Settings")){e.setCancelled(true);openSettings(e.getPlayer(),0);}else if(n.equals("§aStatistics")){e.setCancelled(true);openStats(e.getPlayer());}}
