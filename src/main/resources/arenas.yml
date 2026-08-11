@@ -1,0 +1,2 @@
+schema: 1
+# Arena locations are generated from config.yml. Runtime reservations are never persisted.

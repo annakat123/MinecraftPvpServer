@@ -1,0 +1,17 @@
+package dev.pvpbot.command;
+
+import dev.pvpbot.arena.ArenaManager;
+import dev.pvpbot.bot.profile.ProfileRepository.Difficulty;
+import dev.pvpbot.duel.match.*;
+import org.bukkit.command.*;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import java.util.*;
+
+public final class PvpBotCommand implements CommandExecutor, TabCompleter {
+    private final JavaPlugin plugin; private final DuelManager duels; private final ArenaManager arenas; private final Set<UUID> debug=new HashSet<>();
+    public PvpBotCommand(JavaPlugin plugin,DuelManager duels,ArenaManager arenas){this.plugin=plugin;this.duels=duels;this.arenas=arenas;}
+    public boolean onCommand(CommandSender sender,Command command,String label,String[] args){if(args.length==0||args[0].equalsIgnoreCase("help")){sender.sendMessage("§b/pvpbot reload|debug [player]|profile <name>|arena info|capabilities");return true;}switch(args[0].toLowerCase(Locale.ROOT)){case "reload"->{plugin.reloadConfig();sender.sendMessage("§aCore config reloaded. Profile YAML reload requires restart.");}case "capabilities"->{sender.sendMessage("§bSword 26.2 capabilities: §aAIM, REACH, CRITICALS, STRAFE, SPACING, W_TAP, S_TAP, SPRINT_RESET, JUMP_RESET, COMBO, ADAPTATION = SUPPORTED");sender.sendMessage("§7BLOCK_HIT = UNSUPPORTED_BY_VERSION / UNSUPPORTED_BY_CURRENT_KIT");}case "arena"->{sender.sendMessage("§bArenas: "+arenas.reservedCount()+" reserved / "+arenas.totalCount()+" total");}case "profile"->{if(!(sender instanceof Player p)||args.length<2)return false;try{Difficulty d=Difficulty.valueOf(args[1].toUpperCase(Locale.ROOT));duels.select(p,d);}catch(IllegalArgumentException e){sender.sendMessage("§cUse EASY, NORMAL, HARD, EXPERT or CUSTOM");}}case "debug"->{Player target=args.length>1?plugin.getServer().getPlayer(args[1]):sender instanceof Player p?p:null;if(target==null){sender.sendMessage("§cPlayer not found");return true;}if(!debug.add(target.getUniqueId()))debug.remove(target.getUniqueId());sender.sendMessage("§aDebug for "+target.getName()+": "+debug.contains(target.getUniqueId()));}default->{return false;}}return true;}
+    public void debugTick(){for(UUID id:new HashSet<>(debug)){Player p=plugin.getServer().getPlayer(id);if(p==null)continue;duels.match(p).ifPresent(m->{if(m.brain()==null){p.sendActionBar("§e"+m.id()+" §f"+m.state()+" §7arena="+m.arena().id());return;}var b=m.brain();p.sendActionBar(String.format(Locale.ROOT,"§e%s %s §f%s §7d=%.2f reach=%.1f cd=%.2f ai=%s strafe=%d sprint=%s perception=%dt ping=%dms adapt=%.2f combo=%d/%d arena=%d",m.id().toString().substring(0,8),m.state(),m.profile().name(),b.distance(),m.profile().value("reach.blocks"),b.cooldown(),b.decision(),b.strafeDirection(),b.sprinting(),b.perceptionAgeTicks(),m.profile().millis("simulatedPingMs"),b.adaptationConfidence(),m.metrics().combo.playerCombo(),m.metrics().combo.botCombo(),m.arena().id()));});}}
+    public List<String> onTabComplete(CommandSender sender,Command cmd,String alias,String[] args){if(args.length==1)return List.of("help","reload","debug","profile","arena","capabilities");if(args.length==2&&args[0].equalsIgnoreCase("profile"))return Arrays.stream(Difficulty.values()).map(Enum::name).toList();return List.of();}
+}

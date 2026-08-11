@@ -1,0 +1,16 @@
+# Central server settings. Invalid numeric values are clamped with a warning.
+debug: false
+lobby:
+  world: pvpbot_lobby
+  y: 100
+arena:
+  world: pvpbot_arena
+  y: 100
+  size: 35
+  gap: 64
+  count: 4
+countdown-seconds: 3
+finish-delay-ticks: 50
+skins:
+  fallback: Steve
+  pool: [Steve, Alex, Notch, jeb_]

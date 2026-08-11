@@ -1,0 +1,21 @@
+name: PvPBot
+version: '1.0.0-SNAPSHOT'
+main: dev.pvpbot.PvPBotPlugin
+api-version: '26.2'
+authors: [Ivan]
+description: Local Sword PvP practice against configurable player NPCs
+depend: [Citizens]
+commands:
+  pvpbot:
+    description: PvPBot administration
+    usage: /pvpbot help
+    permission: pvpbot.admin
+  stats:
+    description: Show your PvPBot statistics
+    usage: /stats
+  botstats:
+    description: Show aggregate statistics for a bot profile
+    usage: /botstats [profile]
+permissions:
+  pvpbot.admin:
+    default: op
