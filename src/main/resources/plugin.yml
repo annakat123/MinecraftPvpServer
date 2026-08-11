@@ -1,5 +1,5 @@
 name: PvPBot
-version: '1.0.2'
+version: '1.0.3'
 main: dev.pvpbot.PvPBotPlugin
 api-version: '26.2'
 authors: [Ivan]

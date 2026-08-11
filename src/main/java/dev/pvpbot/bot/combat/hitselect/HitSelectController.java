@@ -6,7 +6,7 @@ public final class HitSelectController {
     public Decision decide(PerceptionSnapshot s, BotProfile p, double cooldown, double adaptedAggression) {
         double reach=p.enabled("reach")?p.value("reach.blocks"):3.0;
         if (!s.lineOfSight()) return Decision.CLOSE_DISTANCE;
-        if (s.incomingCombo() >= 2 && p.enabled("combo")) return Decision.ESCAPE_COMBO;
+        if (s.incomingCombo() >= 2 && s.ticksSinceIncomingHit() <= 6 && p.enabled("combo")) return Decision.ESCAPE_COMBO;
         if (s.distance() > reach) return s.outgoingCombo() > 0 ? Decision.COMBO_CHASE : Decision.CLOSE_DISTANCE;
         if(!p.enabled("hitSelect"))return cooldown>=.9?Decision.ATTACK_NOW:Decision.WAIT;
         double skill=p.value("hitSelect.skill");
