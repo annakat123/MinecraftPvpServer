@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.pvpbot"
-version = "1.0.8"
+version = "1.0.9"
 
 repositories {
     mavenCentral()
@@ -21,6 +21,7 @@ dependencies {
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.papermc.paper:paper-api:26.2.build.+")
+    testImplementation("net.citizensnpcs:citizensapi:2.0.43-SNAPSHOT")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

@@ -16,4 +16,14 @@ class NextDuelSeedStoreTest {
         assertEquals(Long.MIN_VALUE,seeds.consume(playerId).orElseThrow());
         assertTrue(seeds.consume(playerId).isEmpty());
     }
+
+    @Test void pendingSeedIsRemovedWhenPlayerQuits() {
+        NextDuelSeedStore seeds=new NextDuelSeedStore();
+        UUID playerId=UUID.fromString("00000000-0000-0000-0000-000000000107");
+        seeds.set(playerId,12345L);
+
+        seeds.remove(playerId);
+
+        assertTrue(seeds.consume(playerId).isEmpty());
+    }
 }

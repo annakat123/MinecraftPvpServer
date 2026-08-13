@@ -12,6 +12,13 @@ import dev.pvpbot.bot.ai.reaction.ReactionGate;
 import dev.pvpbot.bot.combat.AimController;
 import dev.pvpbot.bot.combat.AimController.AimPlan;
 import dev.pvpbot.bot.combat.CriticalController;
+import dev.pvpbot.bot.combat.attack.AttackExecutionResult;
+import dev.pvpbot.bot.combat.attack.AttackExecutor;
+import dev.pvpbot.bot.combat.attack.AttackIntent;
+import dev.pvpbot.bot.combat.attack.AttackIntentPlanner;
+import dev.pvpbot.bot.combat.attack.AttackTiming;
+import dev.pvpbot.bot.combat.attack.PaperPhysicalAttackProbe;
+import dev.pvpbot.bot.combat.attack.PhysicalAttackProbe;
 import dev.pvpbot.bot.combat.combo.ComboTracker;
 import dev.pvpbot.bot.combat.hitselect.HitSelectController;
 import dev.pvpbot.bot.combat.hitselect.HitSelectController.Decision;
@@ -27,7 +34,7 @@ import java.util.Optional;
 import java.util.random.RandomGenerator;
 
 public final class BotBrain {
-    public interface Telemetry { void botAttackAttempt(boolean connected, boolean critical); }
+    public interface Telemetry { void botAttackAttempt(); }
 
     private final BotHandle handle;
     private final Player target;
@@ -39,6 +46,10 @@ public final class BotBrain {
     private final AimController aim;
     private final CriticalController critical;
     private final MovementController movement;
+    private final AttackIntentPlanner attackPlanner = new AttackIntentPlanner();
+    private final AttackExecutor attackExecutor = new AttackExecutor();
+    private final AttackTiming attackTiming = new AttackTiming();
+    private final PhysicalAttackProbe physicalAttackProbe;
     private final AdaptationController adaptation = new AdaptationController();
     private final ReactionGate decisionGate = new ReactionGate();
     private final ReactionGate aimGate = new ReactionGate();
@@ -48,15 +59,16 @@ public final class BotBrain {
     private final RandomGenerator movementReactionRandom;
 
     private long tick;
-    private long lastAttack = -100;
     private long lastIncoming = -100;
-    private long lastOutgoing = -100;
     private double previousCapturedDistance = Double.NaN;
     private PerceptionSnapshot latestPerceived;
     private Decision decision = Decision.WAIT;
     private AimPlan aimPlan;
     private MovementPlan movementPlan;
     private boolean aimEligible;
+    private AttackIntent lastIntent;
+    private AttackIntent executingContactIntent;
+    private AttackExecutionResult lastExecutionResult;
 
     public BotBrain(BotHandle handle, Player target, Arena arena, BotProfile profile, MatchRandom random, Telemetry telemetry) {
         this.handle = handle;
@@ -70,13 +82,14 @@ public final class BotBrain {
         aim = new AimController(random.stream(Subsystem.AIM));
         critical = new CriticalController(random.stream(Subsystem.CRITICAL));
         movement = new MovementController(random.stream(Subsystem.MOVEMENT), random.stream(Subsystem.TECHNIQUE));
+        physicalAttackProbe = new PaperPhysicalAttackProbe();
     }
 
     public void tick(ComboTracker combo) {
         tick++;
         combo.expire(org.bukkit.Bukkit.getCurrentTick(), 25);
         Player bot = handle.entity();
-        if (bot == null || !target.isOnline()) return;
+        if (bot == null || !bot.isValid() || !bot.isInWorld() || bot.isDead()) return;
 
         long now = System.currentTimeMillis();
         PerceptionSnapshot captured = captureObservation(bot, combo);
@@ -89,7 +102,7 @@ public final class BotBrain {
         adaptation.observe(perceived);
 
         if (decisionGate.ready(tick)) {
-            double cooldown = Math.min(1, (tick - lastAttack) / 12.5);
+            double cooldown = attackTiming.cooldown(tick);
             decision = hitSelect.decide(perceived, profile, cooldown, adaptation.aggression(profile));
             decisionGate.scheduleNext(tick, profile.millis("reaction.decisionMs"),
                     profile.millis("reaction.decisionJitterMs"), decisionReactionRandom);
@@ -115,27 +128,18 @@ public final class BotBrain {
         }
 
         double reach = profile.enabled("reach") ? profile.value("reach.blocks") : 3.0;
-        boolean attackWatchdog = tick - lastAttack >= 30
-                && perceived.distance() <= reach
-                && perceived.lineOfSight();
         boolean attackDirectionValid = profile.enabled("aim")
                 ? aimEligible
-                : liveFacingForExecution(bot);
-        boolean liveAttackValid = liveAttackValid(bot, reach);
-        if ((isAttack(decision) || attackWatchdog)
-                && tick - lastAttack >= 10
-                && perceived.distance() <= reach
-                && perceived.lineOfSight()
-                && attackDirectionValid
-                && liveAttackValid) {
-            boolean crit = critical.criticalWindow(bot);
-            bot.attack(target);
-            bot.swingMainHand();
-            lastAttack = tick;
-            lastOutgoing = tick;
-            movement.afterAttack(bot, profile);
-            telemetry.botAttackAttempt(true, crit);
-        }
+                : perceivedFacing(bot, perceived);
+        attackPlanner.plan(
+                tick,
+                attackTiming.lastAttackAttemptTick(),
+                perceived,
+                decision,
+                attackDirectionValid,
+                reach,
+                critical.criticalWindow(bot)
+        ).ifPresent(intent -> executeAttackIntent(bot, intent));
     }
 
     /** Capture boundary: every combat-relevant target read enters latency through this snapshot. */
@@ -167,32 +171,50 @@ public final class BotBrain {
                 combo.playerCombo(),
                 combo.botCombo(),
                 tick - lastIncoming,
-                tick - lastOutgoing,
+                attackTiming.ticksSinceSuccessfulOutgoingHit(tick),
                 bot.hasLineOfSight(target),
                 grounded(bot),
                 target.isOnGround()
         );
     }
 
-    /** Live target direction is retained only as a final physical execution validation. */
-    private boolean liveFacingForExecution(Player bot) {
+    /** Aim-disabled cognition compares current bot look only with delayed target position. */
+    private boolean perceivedFacing(Player bot, PerceptionSnapshot perceived) {
         Location botEye = bot.getEyeLocation();
         return AimController.isFacing(
                 botEye.getDirection(),
-                target.getEyeLocation().toVector().subtract(botEye.toVector()),
+                perceived.targetEye().toVector().subtract(botEye.toVector()),
                 25
         );
     }
 
-    /** Current reach/line-of-sight are server-side execution checks, not AI inputs. */
-    private boolean liveAttackValid(Player bot, double reach) {
-        return bot.getLocation().distance(target.getLocation()) <= reach + .1 && bot.hasLineOfSight(target);
-    }
+    private void executeAttackIntent(Player bot, AttackIntent intent) {
+        lastIntent = intent;
+        AttackExecutor.Outcome outcome = attackExecutor.execute(intent, new AttackExecutor.Runtime() {
+            @Override public void recordAttempt(AttackIntent consumed) {
+                attackTiming.attempted(tick);
+                telemetry.botAttackAttempt();
+            }
 
-    private static boolean isAttack(Decision decision) {
-        return decision == Decision.ATTACK_NOW
-                || decision == Decision.COUNTER_HIT
-                || decision == Decision.CRITICAL_ATTACK;
+            @Override public void swingMainHand() {
+                bot.swingMainHand();
+            }
+
+            @Override public AttackExecutionResult probePhysicalContact() {
+                return physicalAttackProbe.probe(bot, target, intent.reach());
+            }
+
+            @Override public void attackTarget(AttackIntent consumed) {
+                executingContactIntent = consumed;
+                try {
+                    bot.attack(target);
+                } finally {
+                    executingContactIntent = null;
+                }
+            }
+        });
+        lastExecutionResult = outcome.result();
+        if (outcome.attempted()) movement.afterAttack(bot, profile);
     }
 
     private static boolean grounded(Player bot) {
@@ -202,12 +224,16 @@ public final class BotBrain {
     }
 
     public void incomingHit() { lastIncoming = tick; }
-    public void outgoingHit() { lastOutgoing = tick; }
+    /** Called only from the confirmed outgoing EntityDamageByEntityEvent path. */
+    public boolean outgoingHit() {
+        attackTiming.successfulOutgoingHit(tick);
+        return executingContactIntent != null && executingContactIntent.intendedCritical();
+    }
     public Decision decision() { return decision; }
     public int perceptionAgeTicks() { return Math.max(0, profile.millis("simulatedPingMs") / 50); }
     public int strafeDirection() { return movement.strafeDirection(); }
     public double distance() { return latestPerceived == null ? 0 : latestPerceived.distance(); }
-    public double cooldown() { return Math.min(1, (tick - lastAttack) / 12.5); }
+    public double cooldown() { return attackTiming.cooldown(tick); }
     public double adaptationConfidence() { return adaptation.model().confidence(); }
     public boolean sprinting() { Player bot = handle.entity(); return bot != null && bot.isSprinting(); }
     public long decisionPlanAgeTicks() { return decisionGate.ageTicks(tick); }
@@ -216,4 +242,12 @@ public final class BotBrain {
     public long decisionTicksUntilUpdate() { return decisionGate.ticksUntilReady(tick); }
     public long aimTicksUntilUpdate() { return aimGate.ticksUntilReady(tick); }
     public long movementTicksUntilUpdate() { return movementGate.ticksUntilReady(tick); }
+    public long watchdogIntentCount() { return attackPlanner.watchdogIntentCount(); }
+    public AttackIntent lastIntent() { return lastIntent; }
+    public AttackExecutionResult lastExecutionResult() { return lastExecutionResult; }
+    public long lastAttackAttemptTick() { return attackTiming.lastAttackAttemptTick(); }
+    public long lastSuccessfulOutgoingHitTick() { return attackTiming.lastSuccessfulOutgoingHitTick(); }
+    public long lastIntentPerceptionAgeTicks() {
+        return lastIntent == null ? 0 : Math.max(0, lastIntent.creationTick() - lastIntent.perceptionTick());
+    }
 }

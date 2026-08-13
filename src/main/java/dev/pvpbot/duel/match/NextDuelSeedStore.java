@@ -17,4 +17,8 @@ public final class NextDuelSeedStore {
         Long seed = seeds.remove(playerId);
         return seed == null ? OptionalLong.empty() : OptionalLong.of(seed);
     }
+
+    public void remove(UUID playerId) {
+        seeds.remove(playerId);
+    }
 }

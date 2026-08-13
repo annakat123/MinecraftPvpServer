@@ -8,13 +8,15 @@
 
 ## Bot layer and AI
 
-Citizens is isolated in `bot.entity`: it creates the player model and cached name-based skin. The combat system does not use Citizens navigation. `BotBrain` captures one coherent immutable observation and matures it through one simulated-latency buffer. Adaptation observes each new matured snapshot once; independent tick-based decision, aim, and movement reaction gates update held state from the latest matured snapshot. Aim and movement motor execution continue every tick from held plans. Movement uses bounded velocity steering suitable for the small flat arena. Detailed mechanics, the local combat coordinate frame, reaction scheduling, legacy profile migration, and the live execution-validation boundary are in `BOT_AI.md`.
+Citizens is isolated in `bot.entity`: it creates the player model and cached name-based skin. The combat system does not use Citizens navigation. `BotBrain` captures one coherent immutable observation and matures it through one simulated-latency buffer. Adaptation observes each new matured snapshot once; independent tick-based decision, aim, and movement reaction gates update held state from the latest matured snapshot. Aim and movement motor execution continue every tick from held plans. Movement uses bounded velocity steering suitable for the small flat arena.
+
+Attack execution is split into `AttackIntentPlanner` → immutable `AttackIntent` → single-use `AttackExecutor` → `PhysicalAttackProbe`. Planning uses delayed perception, held decision, attempt cadence and executed aim state. Execution records one attempt and swings once; `PaperPhysicalAttackProbe` resolves the closest current block/entity ray hit from the bot eye. Only target contact calls normal `LivingEntity.attack(Entity)`. `EntityDamageByEntityEvent` alone confirms hits, damage, combo, successful-hit timing and approximate successful critical accounting. Detailed mechanics are in `BOT_AI.md`.
 
 ## Threading and persistence
 
 All Bukkit entity/world/inventory operations run on the server thread. SQLite schema creation and occasional reads occur outside the tick loop; match/profile writes use one ordered background executor. WAL and prepared statements are used. Shutdown waits up to five seconds for queued writes.
 
-Schema version 1 has `schema_version`, `player_stats`, `matches`, and `custom_profiles`. A miss is an intentional human arm-swing during ACTIVE with no corresponding successful damage event; bot attempts are explicit calls to the attack executor. Combo means consecutive successful attacks by one participant without a successful opposing attack between them.
+Schema version 1 has `schema_version`, `player_stats`, `matches`, and `custom_profiles`. A player miss remains an intentional ACTIVE arm-swing with no corresponding successful damage event. A bot attempt is every ACTIVE consumed `AttackIntent`; a bot miss is `max(0, attempts - confirmed hits)`. Combo means consecutive successful attacks by one participant without a successful opposing attack between them.
 
 ## Extension points
 

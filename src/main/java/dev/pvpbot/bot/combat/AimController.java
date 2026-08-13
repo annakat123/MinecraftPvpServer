@@ -54,8 +54,15 @@ public final class AimController {
                 profile.value("aim.maxYawSpeed"),
                 profile.value("aim.maxPitchSpeed")
         );
-        if (profile.enabled("aim")) bot.setRotation(rotation.yaw(), rotation.pitch());
-        return withinAimTolerance(rotation, plan.accuracy());
+        if (!profile.enabled("aim")) return withinAimTolerance(rotation, plan.accuracy());
+        bot.setRotation(rotation.yaw(), rotation.pitch());
+        Rotation executed = new Rotation(
+                bot.getYaw(),
+                bot.getPitch(),
+                rotation.wantedYaw(),
+                rotation.wantedPitch()
+        );
+        return withinAimTolerance(executed, plan.accuracy());
     }
 
     public static Rotation nextRotation(AimPlan plan, Vector from, float currentYaw, float currentPitch,

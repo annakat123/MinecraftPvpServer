@@ -1,6 +1,6 @@
 # PvPBotServer
 
-PvPBot 1.0.8 is a local Paper 26.2 Sword practice server. A player fights a configurable Citizens player-NPC named `PracticeBot`. Both sides use the same unenchanted diamond sword/armor and 20 HP.
+PvPBot 1.0.9 is a local Paper 26.2 Sword practice server. A player fights a configurable Citizens player-NPC named `PracticeBot`. Both sides use the same unenchanted diamond sword/armor and 20 HP.
 
 ## Verified stack
 
@@ -33,11 +33,13 @@ Configuration: `config.yml`, `bot-profiles.yml`, `arenas.yml`. Player Custom pro
 
 Simulated ping delays when information becomes available. Independent decision, aim, and movement reaction settings delay the corresponding response after that point. Reaction is resolved on the nominal 20 TPS server timeline (approximately 50 ms per tick); the settings GUI separates Latency from Reaction. Existing 1.0.7 YAML/SQLite reaction values are migrated when loaded.
 
+Delayed perception now creates one-shot `AttackIntent` swings. The bot always swings for a consumed intent, while a neutral current-view Paper ray trace decides whether normal server melee processing is invoked. This allows stale perception and imperfect aim to produce real, non-damaging whiffs without adding another artificial attack delay.
+
 ## Current limitations
 
 - NoDebuff is intentionally not implemented.
 - Legacy sword block-hit is unavailable in modern 26.2 and with the no-shield Sword kit.
-- Citizens supplies the player entity/skin layer; direct velocity steering supplies close-range combat movement. The quality of Citizens 26.2 knockback, skin loading and fake-player attack semantics must be verified with a real client.
+- Citizens supplies the player entity/skin layer; direct velocity steering supplies close-range combat movement. Citizens NPC view/ray alignment, swing rendering, knockback, skin loading and fake-player attack semantics must be verified with a real authenticated 26.2 client.
 - “Death” is resolved from lethal final damage and immediately presented as victory/defeat, avoiding a vanilla respawn screen while retaining one-lethal-event-per-duel semantics.
 - The settings GUI exposes every runtime numeric parameter in the current MVP on one page plus all technique toggles. Administrative YAML remains the place for preset editing.
 
