@@ -2,7 +2,7 @@
 
 Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startup QA: `scripts\setup-local.ps1 -AcceptEula`, then launch `java -Xms1G -Xmx2G -jar paper.jar --nogui`, wait for `Done`, issue `stop`, and inspect all of `local-server\logs\latest.log`. Automated startup does not prove client-side PvP quality.
 
-RNG unit tests verify repeatable named streams, different fixed-seed sequences, isolation between AIM and MOVEMENT consumption, and one-shot consumption of an administrative next-duel seed. Full replay still requires the same profile and the same perception/input sequence; a human opponent supplies external state and therefore same-seed live duels need not be visually identical.
+RNG unit tests verify repeatable named streams, different fixed-seed sequences, isolation between AIM and MOVEMENT consumption, and one-shot consumption of an administrative next-duel seed. Perception tests verify latency maturation before adaptation, one-time learning of a matured tick, rotation-invariant local forward/lateral projection, opposite lateral signs, degenerate geometry, local adaptive aim bias and the documented closing-speed sign. Full replay still requires the same profile and the same perception/input sequence; a human opponent supplies external state and therefore same-seed live duels need not be visually identical.
 
 ## Manual Minecraft 26.2 checklist
 

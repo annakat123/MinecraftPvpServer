@@ -8,7 +8,7 @@
 
 ## Bot layer and AI
 
-Citizens is isolated in `bot.entity`: it creates the player model and cached name-based skin. The combat system does not use Citizens navigation. `BotBrain` composes delayed perception, adaptation, hit selection, aim, critical and movement controllers. Movement uses bounded velocity steering suitable for the small flat arena. Detailed mechanics and parameters are in `BOT_AI.md`.
+Citizens is isolated in `bot.entity`: it creates the player model and cached name-based skin. The combat system does not use Citizens navigation. `BotBrain` captures one coherent immutable observation, matures it through one simulated-latency buffer, then supplies that same perceived moment to adaptation, hit selection, aim and movement planning. Movement uses bounded velocity steering suitable for the small flat arena. Detailed mechanics, the local combat coordinate frame and the live execution-validation boundary are in `BOT_AI.md`.
 
 ## Threading and persistence
 
