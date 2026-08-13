@@ -5,6 +5,7 @@ import dev.pvpbot.bot.profile.ProfileSchema;
 import dev.pvpbot.bot.profile.ProfileRepository.Difficulty;
 import dev.pvpbot.database.DatabaseService;
 import dev.pvpbot.duel.match.DuelManager;
+import dev.pvpbot.lobby.LobbyService;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.*;
@@ -12,8 +13,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import java.util.*;
@@ -26,12 +30,16 @@ public final class MenuService implements Listener {
             "Movement",List.of("strafe","spacing"), "Criticals",List.of("criticals"),
             "Sprint Reset",List.of("sprintReset","wTap","sTap","jumpReset"),
             "Combo",List.of("combo"), "Adaptation",List.of("adaptation"));
-    private final DuelManager duels; private final DatabaseService database;
-    public MenuService(DuelManager duels,DatabaseService database){this.duels=duels;this.database=database;}
+    private final DuelManager duels; private final DatabaseService database; private final LobbyService lobby;
+    public MenuService(DuelManager duels,DatabaseService database,LobbyService lobby){this.duels=duels;this.database=database;this.lobby=lobby;}
     @EventHandler public void command(PlayerCommandPreprocessEvent e){if(e.getMessage().trim().equalsIgnoreCase("/pvpbot")){e.setCancelled(true);openDuel(e.getPlayer());}}
     private static Map<String,List<String>> categories(){Map<String,List<String>> m=new LinkedHashMap<>();m.put("Latency",List.of("simulatedPingMs","baseReactionMs","reactionJitterMs"));m.put("Aim",List.of("aim.accuracy","aim.predictionStrength","aim.maxYawSpeed","aim.maxPitchSpeed"));m.put("Combat",List.of("reach.blocks","hitSelect.skill","hitSelect.chance","hitSelect.patience","hitSelect.counterHitPreference","hitSelect.cooldownDiscipline","hitSelect.baitPreference"));m.put("Movement",List.of("strafe.skill","strafe.chance","strafe.intensity","spacing.skill","spacing.preferredDistance","spacing.forwardPressure"));m.put("Criticals",List.of("criticals.skill","criticals.chance"));m.put("Sprint Reset",List.of("sprintReset.skill","wTap.skill","wTap.chance","sTap.skill","sTap.chance","jumpReset.skill","jumpReset.chance"));m.put("Combo",List.of("combo.chaseSkill","combo.escapeSkill"));m.put("Adaptation",List.of("adaptation.strength"));return Collections.unmodifiableMap(m);}
 
-    @EventHandler public void interact(PlayerInteractEvent e){if(e.getItem()==null||e.getItem().getItemMeta()==null)return;String n=e.getItem().getItemMeta().getDisplayName();if(n.equals("§bDuel Selector")){e.setCancelled(true);openDuel(e.getPlayer());}else if(n.equals("§eBot Settings")){e.setCancelled(true);openSettings(e.getPlayer(),0);}else if(n.equals("§aStatistics")){e.setCancelled(true);openStats(e.getPlayer());}}
+    @EventHandler public void interact(PlayerInteractEvent e){if(!lobby.isInLobby(e.getPlayer()))return;String control=lobby.control(e.getItem());if("duel".equals(control)){e.setCancelled(true);openDuel(e.getPlayer());}else if("settings".equals(control)){e.setCancelled(true);openSettings(e.getPlayer(),0);}else if("statistics".equals(control)){e.setCancelled(true);openStats(e.getPlayer());}}
+    @EventHandler public void protectLobbyClick(InventoryClickEvent e){if(!(e.getWhoClicked() instanceof Player p)||!lobby.isInLobby(p))return;ItemStack hotbar=e.getHotbarButton()>=0?p.getInventory().getItem(e.getHotbarButton()):null;if(lobby.isLobbyItem(e.getCurrentItem())||lobby.isLobbyItem(e.getCursor())||lobby.isLobbyItem(hotbar))e.setCancelled(true);}
+    @EventHandler public void protectLobbyDrag(InventoryDragEvent e){if(e.getWhoClicked() instanceof Player p&&lobby.isInLobby(p)&&lobby.isLobbyItem(e.getOldCursor()))e.setCancelled(true);}
+    @EventHandler public void protectLobbyDrop(PlayerDropItemEvent e){if(lobby.isInLobby(e.getPlayer())&&lobby.isLobbyItem(e.getItemDrop().getItemStack()))e.setCancelled(true);}
+    @EventHandler public void protectLobbyHandSwap(PlayerSwapHandItemsEvent e){if(lobby.isInLobby(e.getPlayer())&&(lobby.isLobbyItem(e.getMainHandItem())||lobby.isLobbyItem(e.getOffHandItem())))e.setCancelled(true);}
     public void openDuel(Player p){Inventory i=Bukkit.createInventory(null,27,Component.text(DUEL));int slot=10;for(Difficulty d:Difficulty.values())i.setItem(slot++,item(d==duels.selected(p)?Material.LIME_WOOL:Material.GRAY_WOOL,"§f"+d,List.of("§7Click to select")));i.setItem(22,item(Material.DIAMOND_SWORD,"§bStart SWORD duel",List.of("§7One death · identical diamond kit")));p.openInventory(i);}
     public void openSettings(Player p,int ignoredPage){Inventory i=Bukkit.createInventory(null,45,Component.text(SETTINGS));int slot=10;for(var entry:CATEGORIES.entrySet()){i.setItem(slot++,item(Material.COMPARATOR,"§e"+entry.getKey(),List.of("§7"+entry.getValue().size()+" numeric controls","§7Click to configure")));if(slot==17)slot=19;}i.setItem(40,item(Material.EMERALD,"§aSave Custom",List.of("§7Persist all values by UUID")));i.setItem(44,item(Material.BARRIER,"§cReset",List.of("§7Reset to NORMAL defaults")));p.openInventory(i);}
     private void openCategory(Player p,String category){List<String> keys=CATEGORIES.get(category);if(keys==null)return;Inventory i=Bukkit.createInventory(null,54,Component.text(PREFIX+category));BotProfile profile=duels.custom(p);int slot=0;for(String key:keys){var s=ProfileSchema.PARAMETERS.get(key);i.setItem(slot++,item(Material.REPEATER,"§e"+key,List.of("§fCurrent: "+round(profile.value(key)),"§7Range: "+s.min()+" .. "+s.max(),"§aLeft +"+s.step()+" §cRight -"+s.step(),"§7Shift = x5")));}slot=36;for(String toggle:TOGGLES.getOrDefault(category,List.of()))i.setItem(slot++,item(profile.enabled(toggle)?Material.LIME_DYE:Material.GRAY_DYE,"§f"+toggle,List.of(profile.enabled(toggle)?"§aENABLED":"§cDISABLED","§7Click to toggle")));i.setItem(49,item(Material.ARROW,"§fBack",List.of("§7All categories")));p.openInventory(i);}

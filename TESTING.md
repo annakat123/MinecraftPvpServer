@@ -13,6 +13,8 @@ Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startu
 ### GUI and Custom profile
 
 - [ ] Duel Selector, Bot Settings and Statistics open
+- [ ] Lobby controls cannot be dropped, moved, shift-clicked, number-key swapped, dragged, transferred to a container or moved to the offhand
+- [ ] Normal inventory interaction remains available outside the PvPBot lobby; the Sword duel inventory is unaffected
 - [ ] EASY/NORMAL/HARD/EXPERT/CUSTOM selection changes
 - [ ] Every numeric setting changes with left/right and Shift clicks and remains within range
 - [ ] Every technique enabled flag toggles
@@ -45,6 +47,7 @@ Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startu
 - [ ] Lethal player damage shows DEFEAT; lethal bot damage shows VICTORY
 - [ ] Title remains about 2.5 seconds, then bot despawns
 - [ ] Player returns to lobby with lobby inventory and arena becomes available
+- [ ] A new duel can start immediately after Victory/Defeat cleanup without a stale-match warning
 - [ ] Disconnect/reconnect during countdown and ACTIVE leaves no NPC, reservation, freeze or task
 - [ ] `stop` during a fight cleans NPC/task and closes SQLite without errors
 - [ ] Unexpected teleport/arena exit cleans the match
