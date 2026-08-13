@@ -4,10 +4,11 @@ import dev.pvpbot.bot.profile.BotProfile;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
-import java.util.Random;
+import java.util.random.RandomGenerator;
 
 public final class AimController {
-    private final Random random=new Random(); private double errorYaw,errorPitch;
+    private final RandomGenerator random; private double errorYaw,errorPitch;
+    public AimController(RandomGenerator random){this.random=random;}
     public boolean aim(Player bot,Location targetEye,Vector targetVelocity,BotProfile p,double lateralBias){
         if(!p.enabled("aim"))return isFacing(bot.getEyeLocation().getDirection(),targetEye.toVector().subtract(bot.getEyeLocation().toVector()),25); double accuracy=p.value("aim.accuracy"), prediction=p.value("aim.predictionStrength");
         Vector predicted=targetEye.toVector().add(targetVelocity.clone().multiply(prediction*2.2)); predicted.add(new Vector(lateralBias,0,0));

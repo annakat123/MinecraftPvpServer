@@ -2,6 +2,8 @@
 
 Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startup QA: `scripts\setup-local.ps1 -AcceptEula`, then launch `java -Xms1G -Xmx2G -jar paper.jar --nogui`, wait for `Done`, issue `stop`, and inspect all of `local-server\logs\latest.log`. Automated startup does not prove client-side PvP quality.
 
+RNG unit tests verify repeatable named streams, different fixed-seed sequences, isolation between AIM and MOVEMENT consumption, and one-shot consumption of an administrative next-duel seed. Full replay still requires the same profile and the same perception/input sequence; a human opponent supplies external state and therefore same-seed live duels need not be visually identical.
+
 ## Manual Minecraft 26.2 checklist
 
 ### Join
@@ -41,6 +43,8 @@ Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startu
 - [ ] Combo chase and escape work without teleporting
 - [ ] Adaptation remains bounded but changes prediction after repeated movement
 - [ ] `/pvpbot capabilities` reports block-hit unavailable
+- [ ] `/pvpbot seed 12345` affects exactly the next duel, and `/pvpbot debug` shows `Seed: 12345`
+- [ ] A following duel without another seed command shows a newly generated seed
 
 ### Ending and cleanup
 

@@ -27,7 +27,7 @@ Primary references: [Paper project setup](https://docs.papermc.io/paper/dev/proj
 - Lobby hotbar: Duel Selector, Bot Settings, Statistics.
 - `/stats` — player statistics; `/botstats [profile]` — aggregate profile statistics.
 - `/pvpbot profile <EASY|NORMAL|HARD|EXPERT|CUSTOM>`.
-- `/pvpbot debug [player]`, `/pvpbot arena info`, `/pvpbot capabilities`, `/pvpbot reload` (`pvpbot.admin`, op by default).
+- `/pvpbot debug [player]`, `/pvpbot seed <long>`, `/pvpbot arena info`, `/pvpbot capabilities`, `/pvpbot reload` (`pvpbot.admin`, op by default). `seed` sets a one-shot seed for the issuing player's next duel.
 
 Configuration: `config.yml`, `bot-profiles.yml`, `arenas.yml`. Player Custom profiles and match/statistics data are stored by UUID in `plugins/PvPBot/pvpbot.db`. Invalid public parameters are clamped. Preset YAML changes require restart; `/pvpbot reload` reloads central settings only.
 

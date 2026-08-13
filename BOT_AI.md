@@ -2,6 +2,12 @@
 
 The runtime pipeline is world snapshot → logical latency buffer → reaction gate with jitter → hit-select decision → aim/movement/combat execution. It never sleeps or delays packets. The bot sees only delayed `PerceptionSnapshot` data; current entity access is limited to executing the chosen action.
 
+Each duel owns one signed 64-bit seed. `MatchRandom` derives isolated `DECISION`, `AIM`, `MOVEMENT`, `CRITICAL`, and `TECHNIQUE` child streams by applying the SplitMix64 finalizer to `rootSeed XOR subsystemSalt`; subsystem salts are fixed 64-bit constants, and each child uses Java's `SplittableRandom`. Streams are created once per `BotBrain`, so an additional AIM draw cannot advance MOVEMENT. `/pvpbot debug` exposes the active seed. Administrators can set a one-use seed for their next duel with `/pvpbot seed <long>`; it is consumed when that duel is created and is not persisted.
+
+Random skin selection in `ConfiguredSkinProvider` and the match UUID are independent non-combat operations; neither affects combat behavior nor consumes any match stream.
+
+Reproducibility means that the same seed and profile produce the same AI random decisions when given the same sequence of perception/input states. A duel against a human is not guaranteed to look identical because player position, timing, network state, and other world inputs are external to the RNG.
+
 - **Perception:** distance, relative movement, vertical state, health, line of sight, hit timing and combo.
 - **Latency/reaction:** snapshots mature after simulated ping; decisions update after an independent reaction delay and jitter.
 - **Hit-select:** prioritizes escape under pressure, reach, modern cooldown discipline, counter window, critical opportunity and spacing/bait. It is not a random attack chance.
