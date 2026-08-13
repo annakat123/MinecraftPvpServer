@@ -1,6 +1,10 @@
 # Bot AI
 
-The runtime pipeline is world state → one immutable `PerceptionSnapshot` → one logical latency buffer → matured/perceived snapshot → reaction gate with jitter → hit-select decision → aim/movement/combat execution. It never sleeps or delays packets. Decision, aim target prediction, movement planning and adaptation consume the same delayed captured moment; adaptation does not add a second delay.
+The 1.0.8 runtime pipeline is world state → one immutable `PerceptionSnapshot` → one logical simulated-latency buffer → latest matured/perceived snapshot. A new matured snapshot is learned by adaptation exactly once. Three independent scheduled gates then control decision, aim planning, and movement planning; held state is executed between gate openings. The implementation never sleeps, delays packets, or creates one scheduler task per reaction.
+
+Simulated ping and reaction are independent. `simulatedPingMs` controls when captured information becomes available to the bot. Reaction controls how long the bot takes to change actionable state after that information is available. Reaction never re-enters the latency buffer and therefore cannot create a second perception delay.
+
+`ReactionGate` runs on the `BotBrain` tick timeline, not wall-clock time. After a channel update, it draws one uniformly distributed integer offset from `[-jitterMs, +jitterMs]`, computes `max(0, baseMs + offset)`, converts that final interval with `max(1, ceil(intervalMs / 50))`, and schedules one `nextUpdateTick`. It does not redraw while waiting. Paper runs at nominal 20 TPS, approximately 50 ms per tick, so 0–50 ms all resolve to the next available tick; there is no sub-tick execution. The first matured perception may update all three initially-ready gates immediately, after which normal schedules begin. Simulated latency is therefore still honored at startup.
 
 `PerceptionSnapshot` owns cloned target body/eye locations and velocity together with captured distance, local motion, health, line of sight, ground state, hit timing and combo state. A single snapshot replaces the former independent decision and target-observation buffers. Closing speed is the change between consecutive captured distances: positive means the distance is decreasing and negative means it is increasing. The value matures with the snapshot before any AI system consumes it.
 
@@ -8,14 +12,18 @@ Target movement is resolved in a horizontal combat frame captured with the obser
 
 Live current target reads have one narrow exception: final physical attack execution validation may check current facing (when aim is disabled), reach and line of sight so the server does not execute an invalid action against the current world. Those reads do not feed decision, prediction, movement planning or adaptation. Delayed `AttackIntent` and attack-execution semantics remain a future task; this release does not claim that attack execution itself is fully delayed.
 
-Each duel owns one signed 64-bit seed. `MatchRandom` derives isolated `DECISION`, `AIM`, `MOVEMENT`, `CRITICAL`, and `TECHNIQUE` child streams by applying the SplitMix64 finalizer to `rootSeed XOR subsystemSalt`; subsystem salts are fixed 64-bit constants, and each child uses Java's `SplittableRandom`. Streams are created once per `BotBrain`, so an additional AIM draw cannot advance MOVEMENT. `/pvpbot debug` exposes the active seed. Administrators can set a one-use seed for their next duel with `/pvpbot seed <long>`; it is consumed when that duel is created and is not persisted.
+Each duel owns one signed 64-bit seed. `MatchRandom` derives isolated `DECISION`, `DECISION_REACTION`, `AIM`, `AIM_REACTION`, `MOVEMENT`, `MOVEMENT_REACTION`, `CRITICAL`, and `TECHNIQUE` child streams by applying the SplitMix64 finalizer to `rootSeed XOR subsystemSalt`; subsystem salts are unique fixed 64-bit constants, and each child uses Java's `SplittableRandom`. Reaction jitter never consumes motor/error streams, so changing a reaction channel does not shift another channel or the aim-error/movement sequence. Streams are created once per `BotBrain`. `/pvpbot debug` exposes the active seed and compact `configured base±jitter:plan age/ticks remaining` values for D/A/M. Administrators can set a one-use seed for their next duel with `/pvpbot seed <long>`; it is consumed when that duel is created and is not persisted.
 
 Random skin selection in `ConfiguredSkinProvider` and the match UUID are independent non-combat operations; neither affects combat behavior nor consumes any match stream.
 
 Reproducibility means that the same seed and profile produce the same AI random decisions when given the same sequence of perception/input states. A duel against a human is not guaranteed to look identical because player position, timing, network state, and other world inputs are external to the RNG.
 
 - **Perception:** one coherent delayed snapshot containing target body/eye/velocity, distance, combat-frame relative movement, vertical state, health, line of sight, hit timing and combo.
-- **Latency/reaction:** snapshots mature after simulated ping; decisions update after an independent reaction delay and jitter.
+- **Decision reaction:** when its gate opens, `HitSelectController.decide(...)` uses the latest matured snapshot and replaces the held `Decision`. The existing formulas are unchanged, and no random decision recomputation occurs while the gate is closed.
+- **Aim reaction:** when its gate opens, planning creates a held `AimPlan` from the delayed target eye, delayed velocity prediction, captured combat frame, adaptive lateral bias, accuracy, and persistent angular error. Every server tick, motor execution reads the bot's current eye/rotation and approaches that held point using `maxYawSpeed`/`maxPitchSpeed`. It does not read a live target point. Slow aim reaction therefore tracks an older plan smoothly instead of freezing and jumping.
+- **Aim error:** the 1.0.7 error amplitude, Gaussian formulas, persistence, and 22% refresh chance are retained. The refresh trial now occurs once per meaningful aim replan rather than at uncontrolled 20 Hz. Consequently, at reaction intervals longer than one tick, error changes less frequently; this intentional timing change ties error deterministically to cognition without rebalancing amplitude.
+- **Movement reaction:** when its gate opens, planning converts the latest delayed combat frame, distance, held decision, combo pressure, and delayed grounded/hit timing into a held `MovementPlan`. Every tick, execution reapplies that plan's forward/retreat/hold vector and sprint behavior. Newer target position/direction cannot change it before the movement gate opens. Arena-center recovery still uses the live bot position as a physical safety boundary, not as target planning input.
+- **Strafe timing:** strafe activation, direction, and the existing random 6-plus-tick switch cadence remain internal execution timing on the `MOVEMENT` stream. They can progress while a held movement strategy executes and are not forced to switch at each movement reaction. Movement reaction changes the captured combat frame/strategy; it neither produces per-tick left/right oscillation nor consumes strafe randomness.
 - **Hit-select:** prioritizes escape under pressure, reach, modern cooldown discipline, counter window, critical opportunity and spacing/bait. It is not a random attack chance.
 - **Aim:** predicted target point, bounded yaw/pitch rotation, persistent Gaussian error and bounded adaptive lateral bias; never snaps directly by default.
 - **Reach:** one centralized 2.0–6.0 check plus active match, target, line-of-sight and arena validity.
@@ -33,8 +41,12 @@ All numeric values are `double`; GUI changes are clamped. All listed controls af
 | Name | Range | Default | Effect |
 |---|---:|---:|---|
 | `simulatedPingMs` | 0–500 ms | 85 | Snapshot availability delay |
-| `baseReactionMs` | 20–500 ms | 130 | Minimum decision cadence |
-| `reactionJitterMs` | 0–200 ms | 30 | Random reaction variation |
+| `reaction.decisionMs` | 0–500 ms | 130 | Tactical/HitSelect response delay |
+| `reaction.decisionJitterMs` | 0–200 ms | 30 | Symmetric decision interval jitter |
+| `reaction.aimMs` | 0–500 ms | 130 | Aim-plan response delay |
+| `reaction.aimJitterMs` | 0–200 ms | 30 | Symmetric aim-plan interval jitter |
+| `reaction.movementMs` | 0–500 ms | 130 | Movement-plan response delay |
+| `reaction.movementJitterMs` | 0–200 ms | 30 | Symmetric movement-plan interval jitter |
 | `reach.blocks` | 2.0–6.0 | 2.9 | Central attack eligibility distance |
 | `aim.accuracy` | 0–1 | .68 | Aim error amplitude |
 | `aim.predictionStrength` | 0–1 | .42 | Target velocity lead |
@@ -63,3 +75,7 @@ All numeric values are `double`; GUI changes are clamped. All listed controls af
 | `adaptation.strength` | 0–.75 | .25 | Bounded learned bias |
 
 Toggles: `aim`, `reach`, `hitSelect`, `criticals`, `strafe`, `spacing`, `wTap`, `sTap`, `jumpReset`, `combo`, `adaptation`. Aim/reach/critical/strafe/W/S/jump/combo/adaptation are `SUPPORTED` at the implementation level but require the real-client checklist. `BLOCK_HIT` is `UNSUPPORTED_BY_VERSION` and `UNSUPPORTED_BY_CURRENT_KIT`. No legacy cosmetic block-hit is faked.
+
+Built-in EASY/NORMAL/HARD/EXPERT profiles initially copy each 1.0.7 `baseReactionMs` value to all three base channels and each `reactionJitterMs` value to all three jitter channels; no unrelated difficulty values were rebalanced. When a YAML preset or SQLite Custom payload contains legacy fields and lacks a corresponding new field, `ProfileMigration` supplies that legacy value to the missing channels. Explicit new fields win. Runtime profiles contain only the six new keys, and newly saved Custom profiles serialize only those keys.
+
+Criticals, W-tap, S-tap, jump-reset, and attack execution continue to use held tactical/movement state within the 1.0.7 scope. No separate technique reaction channels, `AttackIntent`, Utility AI, player swing/cooldown model, personality, opening strategy, JSONL telemetry, or NoDebuff behavior is introduced.

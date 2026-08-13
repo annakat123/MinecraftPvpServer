@@ -11,8 +11,11 @@ import java.util.random.RandomGenerator;
 public final class MatchRandom {
     public enum Subsystem {
         DECISION(0x4445434953494f4eL),
+        DECISION_REACTION(0x445f52454143544eL),
         AIM(0x41494d5f5354524dL),
+        AIM_REACTION(0x415f52454143544eL),
         MOVEMENT(0x4d4f56454d454e54L),
+        MOVEMENT_REACTION(0x4d5f52454143544eL),
         CRITICAL(0x435249544943414cL),
         TECHNIQUE(0x544543484e495155L);
 

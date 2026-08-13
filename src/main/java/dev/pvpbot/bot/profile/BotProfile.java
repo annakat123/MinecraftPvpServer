@@ -8,8 +8,9 @@ public final class BotProfile {
     private final Map<String, Boolean> enabled;
     public BotProfile(String name, Map<String, Double> raw, Map<String, Boolean> toggles) {
         this.name = name.toUpperCase(Locale.ROOT);
+        Map<String, Double> migrated = ProfileMigration.migrateLegacyReaction(raw);
         Map<String, Double> safe = new LinkedHashMap<>();
-        ProfileSchema.PARAMETERS.forEach((key, spec) -> safe.put(key, spec.clamp(raw.getOrDefault(key, spec.fallback()))));
+        ProfileSchema.PARAMETERS.forEach((key, spec) -> safe.put(key, spec.clamp(migrated.getOrDefault(key, spec.fallback()))));
         Map<String, Boolean> flags = new HashMap<>(); ProfileSchema.TOGGLES.forEach(k -> flags.put(k, toggles.getOrDefault(k, true)));
         values = Map.copyOf(safe); enabled = Map.copyOf(flags);
     }

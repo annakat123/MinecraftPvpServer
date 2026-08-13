@@ -1,6 +1,6 @@
 # PvPBotServer
 
-Local Paper 26.2 Sword practice server. A player fights a configurable Citizens player-NPC named `PracticeBot`. Both sides use the same unenchanted diamond sword/armor and 20 HP.
+PvPBot 1.0.8 is a local Paper 26.2 Sword practice server. A player fights a configurable Citizens player-NPC named `PracticeBot`. Both sides use the same unenchanted diamond sword/armor and 20 HP.
 
 ## Verified stack
 
@@ -30,6 +30,8 @@ Primary references: [Paper project setup](https://docs.papermc.io/paper/dev/proj
 - `/pvpbot debug [player]`, `/pvpbot seed <long>`, `/pvpbot arena info`, `/pvpbot capabilities`, `/pvpbot reload` (`pvpbot.admin`, op by default). `seed` sets a one-shot seed for the issuing player's next duel.
 
 Configuration: `config.yml`, `bot-profiles.yml`, `arenas.yml`. Player Custom profiles and match/statistics data are stored by UUID in `plugins/PvPBot/pvpbot.db`. Invalid public parameters are clamped. Preset YAML changes require restart; `/pvpbot reload` reloads central settings only.
+
+Simulated ping delays when information becomes available. Independent decision, aim, and movement reaction settings delay the corresponding response after that point. Reaction is resolved on the nominal 20 TPS server timeline (approximately 50 ms per tick); the settings GUI separates Latency from Reaction. Existing 1.0.7 YAML/SQLite reaction values are migrated when loaded.
 
 ## Current limitations
 

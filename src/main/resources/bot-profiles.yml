@@ -4,8 +4,13 @@
 profiles:
   EASY:
     simulatedPingMs: 140
-    baseReactionMs: 190
-    reactionJitterMs: 45
+    reaction:
+      decisionMs: 190
+      decisionJitterMs: 45
+      aimMs: 190
+      aimJitterMs: 45
+      movementMs: 190
+      movementJitterMs: 45
     reach.blocks: 2.7
     aim.accuracy: 0.48
     aim.predictionStrength: 0.20
@@ -37,8 +42,13 @@ profiles:
     adaptation.strength: 0.10
   NORMAL:
     simulatedPingMs: 85
-    baseReactionMs: 130
-    reactionJitterMs: 30
+    reaction:
+      decisionMs: 130
+      decisionJitterMs: 30
+      aimMs: 130
+      aimJitterMs: 30
+      movementMs: 130
+      movementJitterMs: 30
     reach.blocks: 2.9
     aim.accuracy: 0.68
     aim.predictionStrength: 0.42
@@ -70,8 +80,13 @@ profiles:
     adaptation.strength: 0.25
   HARD:
     simulatedPingMs: 55
-    baseReactionMs: 90
-    reactionJitterMs: 20
+    reaction:
+      decisionMs: 90
+      decisionJitterMs: 20
+      aimMs: 90
+      aimJitterMs: 20
+      movementMs: 90
+      movementJitterMs: 20
     reach.blocks: 3.0
     aim.accuracy: 0.82
     aim.predictionStrength: 0.62
@@ -103,8 +118,13 @@ profiles:
     adaptation.strength: 0.45
   EXPERT:
     simulatedPingMs: 35
-    baseReactionMs: 65
-    reactionJitterMs: 14
+    reaction:
+      decisionMs: 65
+      decisionJitterMs: 14
+      aimMs: 65
+      aimJitterMs: 14
+      movementMs: 65
+      movementJitterMs: 14
     reach.blocks: 3.0
     aim.accuracy: 0.91
     aim.predictionStrength: 0.76

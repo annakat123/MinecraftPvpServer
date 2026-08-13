@@ -2,7 +2,7 @@
 
 Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startup QA: `scripts\setup-local.ps1 -AcceptEula`, then launch `java -Xms1G -Xmx2G -jar paper.jar --nogui`, wait for `Done`, issue `stop`, and inspect all of `local-server\logs\latest.log`. Automated startup does not prove client-side PvP quality.
 
-RNG unit tests verify repeatable named streams, different fixed-seed sequences, isolation between AIM and MOVEMENT consumption, and one-shot consumption of an administrative next-duel seed. Perception tests verify latency maturation before adaptation, one-time learning of a matured tick, rotation-invariant local forward/lateral projection, opposite lateral signs, degenerate geometry, local adaptive aim bias and the documented closing-speed sign. Full replay still requires the same profile and the same perception/input sequence; a human opponent supplies external state and therefore same-seed live duels need not be visually identical.
+RNG unit tests verify repeatable named streams, different fixed-seed sequences, isolation of motor streams and `DECISION_REACTION`/`AIM_REACTION`/`MOVEMENT_REACTION`, and one-shot consumption of an administrative next-duel seed. `ReactionGate` tests cover deterministic schedules, zero and symmetric jitter, negative-result clamping, immediate initial readiness, 50 ms tick conversion, and the absence of jitter resampling while waiting. Domain tests verify smooth held aim execution and continuous held movement execution while newer opposite-direction perception is withheld until the corresponding gate opens. Profile tests cover legacy YAML and SQLite Custom payload migration plus new-only serialization. Perception tests continue to verify latency maturation before adaptation, one-time learning of a matured tick, rotation-invariant local forward/lateral projection, opposite lateral signs, degenerate geometry, local adaptive aim bias and the documented closing-speed sign. Full replay still requires the same profile and the same perception/input sequence; a human opponent supplies external state and therefore same-seed live duels need not be visually identical.
 
 ## Manual Minecraft 26.2 checklist
 
@@ -35,7 +35,9 @@ RNG unit tests verify repeatable named streams, different fixed-seed sequences, 
 - [ ] Bot approaches/holds/retreats naturally and changes strafe direction
 - [ ] Aim rotates smoothly and visibly differs between EASY and EXPERT
 - [ ] Reach 2.0 versus 6.0 changes effective attack eligibility
-- [ ] Simulated ping and reaction independently change response feel
+- [ ] Simulated ping independently delays information availability
+- [ ] Decision, aim, and movement reaction controls independently change response feel without freezing aim/movement execution
+- [ ] `/pvpbot debug` shows D/A/M configured reaction, plan age, and ticks until update
 - [ ] Hit-select waits for cooldown/counters rather than attacking each tick
 - [ ] Critical setting changes falling attacks
 - [ ] W-tap stops sprint for a real tick; S-tap creates a short retreat

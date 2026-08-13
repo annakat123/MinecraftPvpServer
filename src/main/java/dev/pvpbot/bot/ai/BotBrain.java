@@ -8,13 +8,16 @@ import dev.pvpbot.bot.ai.perception.PerceptionSnapshot;
 import dev.pvpbot.bot.ai.perception.RelativeMotion;
 import dev.pvpbot.bot.ai.random.MatchRandom;
 import dev.pvpbot.bot.ai.random.MatchRandom.Subsystem;
+import dev.pvpbot.bot.ai.reaction.ReactionGate;
 import dev.pvpbot.bot.combat.AimController;
+import dev.pvpbot.bot.combat.AimController.AimPlan;
 import dev.pvpbot.bot.combat.CriticalController;
 import dev.pvpbot.bot.combat.combo.ComboTracker;
 import dev.pvpbot.bot.combat.hitselect.HitSelectController;
 import dev.pvpbot.bot.combat.hitselect.HitSelectController.Decision;
 import dev.pvpbot.bot.entity.BotHandle;
 import dev.pvpbot.bot.movement.MovementController;
+import dev.pvpbot.bot.movement.MovementController.MovementPlan;
 import dev.pvpbot.bot.profile.BotProfile;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -37,16 +40,22 @@ public final class BotBrain {
     private final CriticalController critical;
     private final MovementController movement;
     private final AdaptationController adaptation = new AdaptationController();
-    private final RandomGenerator decisionRandom;
+    private final ReactionGate decisionGate = new ReactionGate();
+    private final ReactionGate aimGate = new ReactionGate();
+    private final ReactionGate movementGate = new ReactionGate();
+    private final RandomGenerator decisionReactionRandom;
+    private final RandomGenerator aimReactionRandom;
+    private final RandomGenerator movementReactionRandom;
 
     private long tick;
     private long lastAttack = -100;
-    private long lastDecision = -100;
     private long lastIncoming = -100;
     private long lastOutgoing = -100;
     private double previousCapturedDistance = Double.NaN;
     private PerceptionSnapshot latestPerceived;
     private Decision decision = Decision.WAIT;
+    private AimPlan aimPlan;
+    private MovementPlan movementPlan;
     private boolean aimEligible;
 
     public BotBrain(BotHandle handle, Player target, Arena arena, BotProfile profile, MatchRandom random, Telemetry telemetry) {
@@ -55,7 +64,9 @@ public final class BotBrain {
         this.arena = arena;
         this.profile = profile;
         this.telemetry = telemetry;
-        decisionRandom = random.stream(Subsystem.DECISION);
+        decisionReactionRandom = random.stream(Subsystem.DECISION_REACTION);
+        aimReactionRandom = random.stream(Subsystem.AIM_REACTION);
+        movementReactionRandom = random.stream(Subsystem.MOVEMENT_REACTION);
         aim = new AimController(random.stream(Subsystem.AIM));
         critical = new CriticalController(random.stream(Subsystem.CRITICAL));
         movement = new MovementController(random.stream(Subsystem.MOVEMENT), random.stream(Subsystem.TECHNIQUE));
@@ -77,19 +88,26 @@ public final class BotBrain {
         latestPerceived = perceived;
         adaptation.observe(perceived);
 
-        int jitter = profile.millis("reactionJitterMs");
-        int reactionTicks = Math.max(1, (profile.millis("baseReactionMs")
-                + decisionRandom.nextInt(jitter * 2 + 1) - jitter) / 50);
-        if (tick - lastDecision >= reactionTicks) {
+        if (decisionGate.ready(tick)) {
             double cooldown = Math.min(1, (tick - lastAttack) / 12.5);
             decision = hitSelect.decide(perceived, profile, cooldown, adaptation.aggression(profile));
-            lastDecision = tick;
+            decisionGate.scheduleNext(tick, profile.millis("reaction.decisionMs"),
+                    profile.millis("reaction.decisionJitterMs"), decisionReactionRandom);
         }
 
-        aimEligible = aim.aim(bot, perceived, profile, adaptation.aimLateralBias(profile));
-        if (perceived.botOnGround() && perceived.ticksSinceIncomingHit() > 6) {
-            movement.tick(bot, perceived, arena, profile, decision, tick);
+        if (aimGate.ready(tick)) {
+            aimPlan = aim.plan(perceived, profile, adaptation.aimLateralBias(profile));
+            aimGate.scheduleNext(tick, profile.millis("reaction.aimMs"),
+                    profile.millis("reaction.aimJitterMs"), aimReactionRandom);
         }
+        aimEligible = aim.execute(bot, aimPlan, profile);
+
+        if (movementGate.ready(tick)) {
+            movementPlan = movement.plan(perceived, profile, decision);
+            movementGate.scheduleNext(tick, profile.millis("reaction.movementMs"),
+                    profile.millis("reaction.movementJitterMs"), movementReactionRandom);
+        }
+        movement.execute(bot, movementPlan, arena, profile, tick);
 
         if (decision == Decision.CRITICAL_ATTACK) {
             if (bot.isOnGround() && critical.tryStart(bot, profile)) return;
@@ -192,4 +210,10 @@ public final class BotBrain {
     public double cooldown() { return Math.min(1, (tick - lastAttack) / 12.5); }
     public double adaptationConfidence() { return adaptation.model().confidence(); }
     public boolean sprinting() { Player bot = handle.entity(); return bot != null && bot.isSprinting(); }
+    public long decisionPlanAgeTicks() { return decisionGate.ageTicks(tick); }
+    public long aimPlanAgeTicks() { return aimGate.ageTicks(tick); }
+    public long movementPlanAgeTicks() { return movementGate.ageTicks(tick); }
+    public long decisionTicksUntilUpdate() { return decisionGate.ticksUntilReady(tick); }
+    public long aimTicksUntilUpdate() { return aimGate.ticksUntilReady(tick); }
+    public long movementTicksUntilUpdate() { return movementGate.ticksUntilReady(tick); }
 }

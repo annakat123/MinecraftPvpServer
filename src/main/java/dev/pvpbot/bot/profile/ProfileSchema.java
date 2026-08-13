@@ -13,8 +13,12 @@ public final class ProfileSchema {
     private static Map<String, Parameter> parameters() {
         Map<String, Parameter> p = new LinkedHashMap<>();
         p.put("simulatedPingMs", new Parameter(0, 500, 85, 10));
-        p.put("baseReactionMs", new Parameter(20, 500, 130, 10));
-        p.put("reactionJitterMs", new Parameter(0, 200, 30, 5));
+        p.put("reaction.decisionMs", new Parameter(0, 500, 130, 10));
+        p.put("reaction.decisionJitterMs", new Parameter(0, 200, 30, 5));
+        p.put("reaction.aimMs", new Parameter(0, 500, 130, 10));
+        p.put("reaction.aimJitterMs", new Parameter(0, 200, 30, 5));
+        p.put("reaction.movementMs", new Parameter(0, 500, 130, 10));
+        p.put("reaction.movementJitterMs", new Parameter(0, 200, 30, 5));
         p.put("reach.blocks", new Parameter(2, 6, 2.9, .1));
         p.put("aim.accuracy", unit(.68)); p.put("aim.predictionStrength", unit(.42));
         p.put("aim.maxYawSpeed", new Parameter(3, 90, 19, 2)); p.put("aim.maxPitchSpeed", new Parameter(2, 90, 13, 2));

@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 import java.util.random.RandomGenerator;
 
 import static dev.pvpbot.bot.ai.random.MatchRandom.Subsystem.AIM;
+import static dev.pvpbot.bot.ai.random.MatchRandom.Subsystem.AIM_REACTION;
 import static dev.pvpbot.bot.ai.random.MatchRandom.Subsystem.MOVEMENT;
+import static dev.pvpbot.bot.ai.random.MatchRandom.Subsystem.MOVEMENT_REACTION;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -36,6 +38,15 @@ class MatchRandomTest {
         MatchRandom untouchedAim=new MatchRandom(12345L);
         for(int i=0;i<100;i++)consumedAim.stream(AIM).nextLong();
         assertArrayEquals(sequence(consumedAim.stream(MOVEMENT),20),sequence(untouchedAim.stream(MOVEMENT),20));
+    }
+
+    @Test void reactionStreamsAreIsolatedFromEachOtherAndMotorStreams() {
+        MatchRandom consumed = new MatchRandom(12345L);
+        MatchRandom untouched = new MatchRandom(12345L);
+        for (int i = 0; i < 100; i++) consumed.stream(AIM_REACTION).nextLong();
+        assertArrayEquals(sequence(consumed.stream(MOVEMENT_REACTION),20),sequence(untouched.stream(MOVEMENT_REACTION),20));
+        assertArrayEquals(sequence(consumed.stream(AIM),20),sequence(untouched.stream(AIM),20));
+        assertArrayEquals(sequence(consumed.stream(MOVEMENT),20),sequence(untouched.stream(MOVEMENT),20));
     }
 
     private static long[] sequence(RandomGenerator random,int length) {
