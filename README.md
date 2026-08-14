@@ -1,6 +1,6 @@
 # PvPBotServer
 
-PvPBot 1.0.9 is a local Paper 26.2 Sword practice server. A player fights a configurable Citizens player-NPC named `PracticeBot`. Both sides use the same unenchanted diamond sword/armor and 20 HP.
+PvPBot 1.0.10 is a local Paper 26.2 Sword practice server. A player fights a configurable Citizens player-NPC named `PracticeBot`. Both sides use the same unenchanted diamond sword/armor and 20 HP.
 
 ## Verified stack
 

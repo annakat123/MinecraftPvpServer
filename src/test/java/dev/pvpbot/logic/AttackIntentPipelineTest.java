@@ -198,7 +198,7 @@ class AttackIntentPipelineTest {
         AtomicInteger swings = new AtomicInteger();
         AttackExecutor.Runtime throwing = new AttackExecutor.Runtime() {
             @Override public void recordAttempt(AttackIntent consumed) { attempts.incrementAndGet(); }
-            @Override public void swingMainHand() { swings.incrementAndGet(); throw new IllegalStateException("swing failed"); }
+            @Override public void playAttackAnimation() { swings.incrementAndGet(); throw new IllegalStateException("animation failed"); }
             @Override public AttackExecutionResult probePhysicalContact() { return AttackExecutionResult.CONTACT; }
             @Override public void attackTarget(AttackIntent consumed) { throw new AssertionError("must not attack"); }
         };
@@ -224,6 +224,27 @@ class AttackIntentPipelineTest {
         assertEquals(1, invalid.swings);
         assertEquals(0, invalid.attacks);
         assertEquals(AttackExecutionResult.ALREADY_CONSUMED, retry.result());
+    }
+
+    @Test void everyResultRequestsExactlyOneAnimationBeforePhysicalProbe() {
+        for (AttackExecutionResult result : List.of(
+                AttackExecutionResult.WHIFF,
+                AttackExecutionResult.CONTACT,
+                AttackExecutionResult.TARGET_INVALID
+        )) {
+            FakeRuntime runtime = new FakeRuntime(50, result);
+            AttackExecutor executor = new AttackExecutor();
+            AttackIntent intent = intent(false);
+
+            AttackExecutor.Outcome first = executor.execute(intent, runtime);
+            AttackExecutor.Outcome repeated = executor.execute(intent, runtime);
+
+            assertEquals(1, runtime.swings, result.name());
+            assertEquals(result == AttackExecutionResult.CONTACT ? 1 : 0, runtime.attacks, result.name());
+            assertTrue(runtime.order.indexOf("swing") < runtime.order.indexOf("probe"), result.name());
+            assertEquals(AttackExecutionResult.ALREADY_CONSUMED, repeated.result(), result.name());
+            assertEquals(result, first.result(), result.name());
+        }
     }
 
     @Test void criticalContextIsVisibleOnlyDuringOneAttackInvocationAndCannotLeakLater() throws Exception {
@@ -438,7 +459,7 @@ class AttackIntentPipelineTest {
             metrics.botAttempts++;
         }
 
-        @Override public void swingMainHand() {
+        @Override public void playAttackAnimation() {
             order.add("swing");
             swings++;
         }
@@ -520,7 +541,7 @@ class AttackIntentPipelineTest {
                     "sprintReset", true
             ) : Map.of("wTap", false, "sTap", false);
             brain = new BotBrain(
-                    new BotHandle(null, bot),
+                    new BotHandle(null, bot, (from, viewer) -> swings.incrementAndGet()),
                     target,
                     null,
                     new BotProfile("audit", values, toggles),

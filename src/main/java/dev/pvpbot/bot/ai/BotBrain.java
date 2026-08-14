@@ -25,6 +25,9 @@ import dev.pvpbot.bot.combat.hitselect.HitSelectController.Decision;
 import dev.pvpbot.bot.entity.BotHandle;
 import dev.pvpbot.bot.movement.MovementController;
 import dev.pvpbot.bot.movement.MovementController.MovementPlan;
+import dev.pvpbot.bot.movement.KnockbackSignalPolicy;
+import dev.pvpbot.bot.movement.VerticalAction;
+import dev.pvpbot.bot.movement.VerticalActionController;
 import dev.pvpbot.bot.profile.BotProfile;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -46,6 +49,7 @@ public final class BotBrain {
     private final AimController aim;
     private final CriticalController critical;
     private final MovementController movement;
+    private final VerticalActionController verticalActions;
     private final AttackIntentPlanner attackPlanner = new AttackIntentPlanner();
     private final AttackExecutor attackExecutor = new AttackExecutor();
     private final AttackTiming attackTiming = new AttackTiming();
@@ -82,6 +86,7 @@ public final class BotBrain {
         aim = new AimController(random.stream(Subsystem.AIM));
         critical = new CriticalController(random.stream(Subsystem.CRITICAL));
         movement = new MovementController(random.stream(Subsystem.MOVEMENT), random.stream(Subsystem.TECHNIQUE));
+        verticalActions = movement.verticalActions();
         physicalAttackProbe = new PaperPhysicalAttackProbe();
     }
 
@@ -90,6 +95,9 @@ public final class BotBrain {
         combo.expire(org.bukkit.Bukkit.getCurrentTick(), 25);
         Player bot = handle.entity();
         if (bot == null || !bot.isValid() || !bot.isInWorld() || bot.isDead()) return;
+        verticalActions.beginTick(tick);
+        verticalActions.observeGrounded(bot.isOnGround(), tick);
+        verticalActions.tryJumpReset(bot, tick);
 
         long now = System.currentTimeMillis();
         PerceptionSnapshot captured = captureObservation(bot, combo);
@@ -122,8 +130,10 @@ public final class BotBrain {
         }
         movement.execute(bot, movementPlan, arena, profile, tick);
 
+        boolean intendedCriticalWindow = verticalActions.criticalSetupActive() && critical.criticalWindow(bot);
         if (decision == Decision.CRITICAL_ATTACK) {
-            if (bot.isOnGround() && critical.tryStart(bot, profile)) return;
+            if (verticalActions.intentionalJumpStarted(tick)) return;
+            if (bot.isOnGround() && critical.tryStart(bot, profile, verticalActions, tick)) return;
             if (Math.abs(bot.getVelocity().getY()) > .02 && !critical.criticalWindow(bot)) return;
         }
 
@@ -138,7 +148,7 @@ public final class BotBrain {
                 decision,
                 attackDirectionValid,
                 reach,
-                critical.criticalWindow(bot)
+                intendedCriticalWindow
         ).ifPresent(intent -> executeAttackIntent(bot, intent));
     }
 
@@ -196,8 +206,8 @@ public final class BotBrain {
                 telemetry.botAttackAttempt();
             }
 
-            @Override public void swingMainHand() {
-                bot.swingMainHand();
+            @Override public void playAttackAnimation() {
+                handle.playAttackAnimation(target);
             }
 
             @Override public AttackExecutionResult probePhysicalContact() {
@@ -214,7 +224,7 @@ public final class BotBrain {
             }
         });
         lastExecutionResult = outcome.result();
-        if (outcome.attempted()) movement.afterAttack(bot, profile);
+        if (outcome.attempted()) movement.afterAttack(bot, profile, tick);
     }
 
     private static boolean grounded(Player bot) {
@@ -223,7 +233,15 @@ public final class BotBrain {
         return !bot.getLocation().clone().subtract(0, .15, 0).getBlock().isPassable();
     }
 
-    public void incomingHit() { lastIncoming = tick; }
+    public void incomingHit() {
+        lastIncoming = tick;
+        verticalActions.incomingHit(profile, tick);
+    }
+    public void incomingKnockback(io.papermc.paper.event.entity.EntityKnockbackEvent.Cause cause) {
+        if (KnockbackSignalPolicy.accepts(cause, lastIncoming == tick)) {
+            verticalActions.incomingKnockback(tick);
+        }
+    }
     /** Called only from the confirmed outgoing EntityDamageByEntityEvent path. */
     public boolean outgoingHit() {
         attackTiming.successfulOutgoingHit(tick);
@@ -247,6 +265,8 @@ public final class BotBrain {
     public AttackExecutionResult lastExecutionResult() { return lastExecutionResult; }
     public long lastAttackAttemptTick() { return attackTiming.lastAttackAttemptTick(); }
     public long lastSuccessfulOutgoingHitTick() { return attackTiming.lastSuccessfulOutgoingHitTick(); }
+    public VerticalAction verticalAction() { return verticalActions.verticalAction(); }
+    public int knockbackLockTicksRemaining() { return verticalActions.knockbackLockTicksRemaining(tick); }
     public long lastIntentPerceptionAgeTicks() {
         return lastIntent == null ? 0 : Math.max(0, lastIntent.creationTick() - lastIntent.perceptionTick());
     }

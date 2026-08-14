@@ -8,7 +8,7 @@ import java.util.Set;
 public final class AttackExecutor {
     public interface Runtime {
         void recordAttempt(AttackIntent intent);
-        void swingMainHand();
+        void playAttackAnimation();
         AttackExecutionResult probePhysicalContact();
         void attackTarget(AttackIntent intent);
     }
@@ -25,7 +25,7 @@ public final class AttackExecutor {
         }
 
         runtime.recordAttempt(intent);
-        runtime.swingMainHand();
+        runtime.playAttackAnimation();
         AttackExecutionResult result = Objects.requireNonNull(
                 runtime.probePhysicalContact(), "physical contact result"
         );

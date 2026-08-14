@@ -1,5 +1,40 @@
 # Testing
 
+## Mandatory authenticated-client 1.0.10 validation
+
+Automated tests prove event/state contracts, not client rendering or live physics. Before accepting 1.0.10, test with an authenticated Minecraft 26.2 client:
+
+### Jump and critical
+
+- [ ] Standing near the bot without hitting it never reports `vertical=JRESET`
+- [ ] `vertical=CRIT` is clearly distinguishable and looks like a normal full player jump
+- [ ] An actual incoming hit may produce at most one valid `vertical=JRESET`
+- [ ] On an accepted opportunity, debug/order is hit at T, no jump inside the event, one jump at T+1 (or T+2 only if grounding requires it), and no execution from T+3 onward
+- [ ] Confirm on the authenticated client that the event-relative jump actually resets/reduces incoming knockback; unit tests establish timing and one-shot state only
+- [ ] No tiny or repeated random hops occur
+
+### Knockback
+
+- [ ] Hit PracticeBot while it is moving toward you and observe normal visible knockback
+- [ ] Approach, strafe and S-tap do not cancel X/Z knockback on the next tick
+- [ ] Held movement resumes naturally after `kbLock` reaches zero
+- [ ] High `simulatedPingMs` does not delay physical impact
+- [ ] A direct melee hit reports the expected Paper ordering: confirmed player damage first, then `ENTITY_ATTACK`/`SWEEP_ATTACK` knockback in the same server tick; unrelated push/explosion/damage/unknown knockback never opens `kbLock`
+
+### Attack animation
+
+- [ ] WHIFF shows one main-hand arm swing and no damage
+- [ ] CONTACT shows one main-hand arm swing and normal damage
+- [ ] Exactly one visible swing occurs per attempt, with no double animation
+
+### Skin stability
+
+- [ ] Begin a duel without hitting PracticeBot and watch the countdown plus first active seconds
+- [ ] The NPC does not disappear/reappear when an unresolved skin becomes available
+- [ ] The chosen cached or client-default fallback skin remains stable throughout ACTIVE
+- [ ] On an uncached first use, that duel stays on its stable client default; after Citizens finishes warming, start another duel and verify the resolved skin is already present at spawn with no replacement
+- [ ] `/pvpbot debug` keeps `npcEntity` stable during ACTIVE and reports `npcSpawned=true`
+
 Automated command: `build.bat` (equivalent to `gradlew.bat clean build`). Startup QA: `scripts\setup-local.ps1 -AcceptEula`, then launch `java -Xms1G -Xmx2G -jar paper.jar --nogui`, wait for `Done`, issue `stop`, and inspect all of `local-server\logs\latest.log`. Automated startup does not prove client-side PvP quality.
 
 RNG unit tests verify repeatable named streams, different fixed-seed sequences, isolation of motor streams and `DECISION_REACTION`/`AIM_REACTION`/`MOVEMENT_REACTION`, one-shot consumption of an administrative next-duel seed, and pending-seed removal on quit. `ReactionGate` tests cover deterministic schedules, zero and symmetric jitter, negative-result clamping, immediate initial readiness, 50 ms tick conversion, and the absence of jitter resampling while waiting. Domain tests verify smooth held aim execution and continuous held movement execution while newer opposite-direction perception is withheld until the corresponding gate opens. Profile tests cover legacy YAML and SQLite Custom payload migration plus new-only serialization. Perception tests continue to verify latency maturation before adaptation, one-time learning of a matured tick, rotation-invariant local forward/lateral projection, opposite lateral signs, degenerate geometry, local adaptive aim bias and the documented closing-speed sign.
@@ -78,7 +113,7 @@ RNG unit tests verify repeatable named streams, different fixed-seed sequences, 
 
 ### Mandatory authenticated-client AttackIntent validation
 
-Automated tests do not establish Citizens client rendering or live combat fidelity. Before accepting 1.0.9, use an authenticated Minecraft 26.2 client to verify all of the following:
+Automated tests do not establish Citizens client rendering or live combat fidelity. The following 1.0.9 AttackIntent regression checks also remain required with an authenticated Minecraft 26.2 client:
 
 - [ ] A whiff produces exactly one visible main-hand swing and no damage
 - [ ] Paper ray tracing follows the Citizens NPC's current rendered view/crosshair

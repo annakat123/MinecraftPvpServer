@@ -25,6 +25,7 @@ public final class MovementController {
 
     private final RandomGenerator movementRandom;
     private final RandomGenerator techniqueRandom;
+    private final VerticalActionController verticalActions;
     private int strafe = 1;
     private boolean strafeActive;
     private long nextSwitch;
@@ -33,6 +34,7 @@ public final class MovementController {
     public MovementController(RandomGenerator movementRandom, RandomGenerator techniqueRandom) {
         this.movementRandom = movementRandom;
         this.techniqueRandom = techniqueRandom;
+        this.verticalActions = new VerticalActionController(techniqueRandom);
     }
 
     /** Creates a held strategy exclusively from matured perception and held decision. */
@@ -56,25 +58,29 @@ public final class MovementController {
 
     /** Executes held movement every tick; strafe switching remains an internal motor cadence. */
     public void execute(Player bot, MovementPlan plan, Arena arena, BotProfile profile, long tick) {
-        if (!plan.active()) return;
+        if (plan == null || !plan.active()) return;
         updateStrafe(profile, tick);
         Vector move = plannedHorizontalVelocity(plan, strafe, strafeActive, profile.value("strafe.intensity"));
         Vector toCenter = arena.center().toVector().subtract(bot.getLocation().toVector()).setY(0);
-        if (!arena.contains(bot.getLocation()) || toCenter.length() > arena.halfSize() - 2) {
+        boolean emergencyRecovery = !arena.contains(bot.getLocation()) || toCenter.length() > arena.halfSize() - 2;
+        if (emergencyRecovery) {
             move = toCenter.normalize().multiply(.32);
+        } else if (verticalActions.knockbackLocked(tick)) {
+            updateSprint(bot);
+            return;
         }
         clampHorizontal(move, MAX_HORIZONTAL_SPEED);
         move.setY(bot.getVelocity().getY());
         bot.setVelocity(move);
+        updateSprint(bot);
+    }
+
+    private void updateSprint(Player bot) {
         if (sprintPauseTicks > 0) {
             bot.setSprinting(false);
             sprintPauseTicks--;
         } else {
             bot.setSprinting(true);
-        }
-        if (plan.incomingCombo() > 0 && profile.enabled("jumpReset") && bot.isOnGround()
-                && techniqueRandom.nextDouble() < profile.value("jumpReset.chance") * profile.value("jumpReset.skill") * .14) {
-            bot.setVelocity(bot.getVelocity().setY(.42));
         }
     }
 
@@ -94,10 +100,11 @@ public final class MovementController {
         return toward.add(lateral);
     }
 
-    public void afterAttack(Player bot, BotProfile profile) {
+    public void afterAttack(Player bot, BotProfile profile, long tick) {
         double reset = profile.enabled("sprintReset") ? profile.value("sprintReset.skill") : 0;
         if (profile.enabled("wTap") && techniqueRandom.nextDouble() < profile.value("wTap.chance") * profile.value("wTap.skill") * reset) sprintPauseTicks = 1;
         if (profile.enabled("sTap") && techniqueRandom.nextDouble() < profile.value("sTap.chance") * profile.value("sTap.skill") * reset) {
+            if (verticalActions.knockbackLocked(tick)) return;
             Vector back = bot.getLocation().getDirection().setY(0).normalize().multiply(-.16);
             back.setY(bot.getVelocity().getY());
             bot.setVelocity(back);
@@ -115,4 +122,5 @@ public final class MovementController {
     }
 
     public int strafeDirection() { return strafe; }
+    public VerticalActionController verticalActions() { return verticalActions; }
 }
