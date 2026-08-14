@@ -1,0 +1,45 @@
+package dev.pvpbot.qa;
+
+import dev.pvpbot.bot.combat.attack.AttackExecutionResult;
+import dev.pvpbot.bot.combat.hitselect.HitSelectController.Decision;
+import dev.pvpbot.bot.combat.hitselect.HitSelectController.DecisionReason;
+import dev.pvpbot.bot.movement.VerticalAction;
+
+public record QaFrame(
+        String scenario,
+        long tick,
+        int attempts,
+        int hits,
+        int reportedMisses,
+        long intentSequence,
+        boolean attemptedThisTick,
+        int animationsThisTick,
+        boolean meleeInvokedThisTick,
+        AttackExecutionResult executionResult,
+        boolean confirmedHitThisTick,
+        long lastSuccessfulHitTick,
+        long jumpResetOpportunities,
+        long jumpResetChanceSamples,
+        long jumpResetExecutions,
+        long criticalSetups,
+        boolean intendedCritical,
+        VerticalAction verticalAction,
+        boolean knockbackLocked,
+        boolean movementWrite,
+        boolean sTapWrite,
+        boolean emergencyRecovery,
+        boolean externalImpulse,
+        double horizontalX,
+        double horizontalZ,
+        Decision decision,
+        DecisionReason reason,
+        long latestPerceptionTick,
+        long decisionPerceptionTick,
+        long aimPlanPerceptionTick,
+        long movementPlanPerceptionTick,
+        boolean decisionUpdated,
+        boolean aimUpdated,
+        boolean movementUpdated,
+        boolean watchdogIntent,
+        boolean cadenceAllowed
+) {}

@@ -1,5 +1,11 @@
 # Bot AI
 
+## 1.0.11 explainability without behavior changes
+
+Version 1.0.11 keeps the 1.0.10 reach, aim, movement, reaction, simulated ping, adaptation, technique probabilities, attack cadence and HitSelect decisions unchanged. `HitSelectController.DecisionResult` adds a branch-exact `DecisionReason` and the numeric inputs/thresholds used by the same ordered logic. Reasons are `NO_LINE_OF_SIGHT`, `INCOMING_COMBO_ESCAPE`, `OUT_OF_REACH_COMBO_CHASE`, `OUT_OF_REACH_CLOSE_DISTANCE`, `HIT_SELECT_DISABLED_ATTACK`, `HIT_SELECT_DISABLED_WAIT`, `COOLDOWN_DISCIPLINE_WAIT`, `COUNTER_WINDOW`, `CRITICAL_GROUND_WINDOW`, `SPACING_BAIT`, `LOW_COMMITMENT_HOLD` and `DEFAULT_ATTACK`.
+
+The trace boundary is observational: Noop when disabled; immutable typed events when enabled; no combat RNG, sleep, synchronous file IO, database IO or extra target-world reads. Decision events include the held decision/reason, perception age, D/A/M gate ages/timers and bounded adaptation observations. Attack events retain the existing distinction between intent, animation/attempt, physical `CONTACT|WHIFF|TARGET_INVALID` and separately confirmed damage. JSONL schema 1 and the QA tasks are documented in `README.md`, `ARCHITECTURE.md` and `TESTING.md`.
+
 ## 1.0.10 live-client correctness
 
 The 1.0.10 release keeps the 1.0.9 perception, reaction, HitSelect, spacing, reach, profile and AttackIntent balance unchanged. It corrects only vertical event timing, physical knockback preservation, Citizens attack-animation delivery, and active-NPC skin stability.
@@ -92,4 +98,4 @@ Toggles: `aim`, `reach`, `hitSelect`, `criticals`, `strafe`, `spacing`, `wTap`, 
 
 Built-in EASY/NORMAL/HARD/EXPERT profiles initially copy each 1.0.7 `baseReactionMs` value to all three base channels and each `reactionJitterMs` value to all three jitter channels; no unrelated difficulty values were rebalanced. When a YAML preset or SQLite Custom payload contains legacy fields and lacks a corresponding new field, `ProfileMigration` supplies that legacy value to the missing channels. Explicit new fields win. Runtime profiles contain only the six new keys, and newly saved Custom profiles serialize only those keys.
 
-Criticals, W-tap, S-tap, jump-reset, and attack execution continue to use held tactical/movement state within the existing scope. 1.0.10 keeps the 1.0.9 `AttackIntent` semantics and adds only event-driven vertical/knockback motor state. No Utility AI, player swing/cooldown model, personality, opening strategy, JSONL telemetry, or NoDebuff behavior is introduced.
+Criticals, W-tap, S-tap, jump-reset, and attack execution continue to use held tactical/movement state within the existing scope. 1.0.10 kept the 1.0.9 `AttackIntent` semantics and added only event-driven vertical/knockback motor state; 1.0.11 adds observation and test infrastructure around those semantics. No Utility AI, player swing/cooldown model, personality, opening strategy, or NoDebuff behavior is introduced.

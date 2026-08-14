@@ -1,5 +1,13 @@
 # Architecture
 
+## 1.0.11 observability and QA boundaries
+
+`HitSelectController` now returns an immutable `DecisionResult(decision, reason, inputs)`. The reason enum maps one-to-one to the existing ordered production branches; formulas, thresholds and branch order are unchanged. A frozen 1.0.10 reference implementation is compared against the explainable result across 100,000 deterministic generated states.
+
+`CombatTraceSink` is a one-way boundary with `NoopCombatTraceSink`, `InMemoryCombatTraceSink` and `JsonlCombatTraceSink`. Production defaults to Noop. `BotBrain` emits typed immutable events only from values it already captured or owns; it performs no additional target reads for tracing. JSON serialization is controlled record serialization through Gson. Live sinks encode and non-blockingly offer lines to one plugin-owned `AsyncJsonlTraceWriter`: ordered `ArrayBlockingQueue` capacity 4096, one daemon writer, no thread per duel, dropped-event counting instead of server-thread blocking, and a final `TRACE_SUMMARY` written on close. The plugin shuts matches down before draining the writer.
+
+The deterministic test-side `CombatScenarioRunner` exercises production HitSelect, latency, reaction gates, aim planning, movement planning/clamping, MatchRandom streams, vertical state, AttackIntent planning/execution and attack timing against bounded controlled inputs. The reusable invariant engine is shared by scripted and generated scenarios. Generation uses a separate `SplittableRandom` seeded only by the QA seed; it never consumes `MatchRandom`. Reports and last-100-event failure artifacts are produced only after simulation. This proves domain/state contracts, not client rendering, exact Paper friction feel or Citizens packet appearance.
+
 ## 1.0.10 entity and physics boundaries
 
 Citizens skin loading is constrained to a pre-spawn stable selection. PvPBot uses a requested or fallback skin only when Citizens' public `Skin` cache or PvPBot's in-memory cache already has valid texture data; otherwise that duel uses the stable client-default skin. A first-use miss calls Citizens `ProfileFetcher.fetch` without attaching the request to an NPC. Citizens performs the profile work asynchronously and returns the resolved `SkinProperty`; PvPBot stores only its signed texture fields. A later duel applies those fields with `SkinTrait.setSkinPersistent(...)` before `npc.spawn`. Failed fetches leave the current duel unchanged and may be retried by a later duel. `SkinTrait.setShouldUpdateSkins(false)` and `setFetchDefaultSkin(false)` prevent the NPC name from starting another fetch, and PvPBot never changes the skin after spawn.

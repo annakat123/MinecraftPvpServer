@@ -68,12 +68,17 @@ public final class VerticalActionController {
     }
 
     public boolean tryJumpReset(Player bot, long tick) {
+        return tryJumpReset(bot.isOnGround(), tick, () -> PlayerJump.jump(bot));
+    }
+
+    /** Pure runtime boundary used by deterministic QA; production delegates with the same checks. */
+    public boolean tryJumpReset(boolean grounded, long tick, Runnable jump) {
         expireJumpResets(tick);
         JumpResetOpportunity opportunity = jumpResets.peekFirst();
-        if (opportunity == null || tick < opportunity.executeFromTick() || !bot.isOnGround()) return false;
+        if (opportunity == null || tick < opportunity.executeFromTick() || !grounded) return false;
 
         jumpResets.removeFirst();
-        PlayerJump.jump(bot);
+        jump.run();
         criticalSetupActive = false;
         lastIntentionalJumpTick = tick;
         jumpResetExecutions++;
@@ -82,7 +87,12 @@ public final class VerticalActionController {
     }
 
     public void criticalSetup(Player bot, long tick) {
-        PlayerJump.jump(bot);
+        criticalSetup(tick, () -> PlayerJump.jump(bot));
+    }
+
+    /** Pure runtime boundary used by deterministic QA; production supplies the physical jump. */
+    public void criticalSetup(long tick, Runnable jump) {
+        jump.run();
         criticalSetupActive = true;
         lastIntentionalJumpTick = tick;
         mark(VerticalAction.CRITICAL_SETUP, tick);

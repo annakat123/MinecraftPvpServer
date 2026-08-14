@@ -1,8 +1,22 @@
 # Testing
 
-## Mandatory authenticated-client 1.0.10 validation
+## Automated combat QA 1.0.11
 
-Automated tests prove event/state contracts, not client rendering or live physics. Before accepting 1.0.10, test with an authenticated Minecraft 26.2 client:
+- `gradlew.bat clean test` runs unit tests, including 100,000 generated HitSelect equivalence inputs, Noop/InMemory zero-observer comparison, JSON schema checks, architecture boundaries and harness tests.
+- `gradlew.bat combatQa` runs 9 scripted scenarios, 5 deliberately invalid negative controls and 128 generated seeds × 180 ticks by default.
+- `gradlew.bat combatQaExtended` runs 4000 generated seeds × 300 ticks by default (1.2 million generated transitions plus scripted scenarios).
+- `-PqaSeed=<long>` selects the reproducible QA root seed, `-PqaScenario=<name>` runs one scripted scenario, and `-PqaSeeds=<count>` bounds generated count.
+- Reports: `build/reports/combat-qa/report.txt` and `report.json`. A failed scenario writes metadata plus its last 100 structured trace events to `build/reports/combat-qa/failures/<scenario>_seed-<seed>.jsonl` and prints an exact reproduction command.
+
+Scripted coverage: `HIGH_PING_SIDE_STEP`, `INCOMING_KNOCKBACK`, `JUMP_RESET_VALID`, `JUMP_RESET_INVALID`, `CRITICAL_SETUP`, `REACTION_HOLD`, `WATCHDOG_ATTACK`, `CONTACT_WITHOUT_DAMAGE`, and `ARENA_EDGE_RECOVERY`. Reusable invariants cover attempt/hit/miss accounting, one-shot intent/animation execution, WHIFF/TARGET_INVALID isolation, Jump Reset opportunity rules, critical provenance, knockback locks, finite/bounded movement, reaction-held plans, hit timing and watchdog cadence/physical validation.
+
+The mandatory negative controls are isolated invalid fixtures, never mutations of production code: JRESET without hit, movement write during KB lock, duplicate intent execution, WHIFF counted as confirmed damage, and two animations for one attempt. All five must be detected for the task to pass.
+
+`CombatScenarioRunner` proves deterministic domain and state invariants against controlled inputs using real plannable components. It does not prove actual authenticated-client rendering, exact Paper friction/knockback feel, Citizens packet visuals or real-human balance. Generated metrics are harness observations, not game balance truth.
+
+## Mandatory authenticated-client 1.0.10/1.0.11 validation
+
+Automated tests prove event/state contracts, not client rendering or live physics. Before accepting 1.0.11, test with an authenticated Minecraft 26.2 client:
 
 ### Jump and critical
 

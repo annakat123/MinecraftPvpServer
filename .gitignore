@@ -5,6 +5,7 @@ out/
 *.iml
 runtime/
 local-server/logs/
+local-server/codex-server-*.log
 local-server/world*/
 local-server/cache/
 local-server/libraries/

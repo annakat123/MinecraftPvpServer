@@ -32,7 +32,7 @@ public final class PvpBotCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) {
-            sender.sendMessage("\u00A7b/pvpbot reload|debug [player]|seed <long>|profile <name>|arena info|capabilities");
+            sender.sendMessage("\u00A7b/pvpbot reload|debug [player]|seed <long>|trace on|off|status|profile <name>|arena info|capabilities");
             return true;
         }
         switch (args[0].toLowerCase(Locale.ROOT)) {
@@ -66,6 +66,23 @@ public final class PvpBotCommand implements CommandExecutor, TabCompleter {
                 } catch (NumberFormatException error) {
                     sender.sendMessage("\u00A7cSeed must be a signed 64-bit integer.");
                 }
+            }
+            case "trace" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("\u00A7cPlayers only");
+                    return true;
+                }
+                if (args.length < 2) {
+                    sender.sendMessage("\u00A7e/pvpbot trace on|off|status");
+                    return true;
+                }
+                String message = switch (args[1].toLowerCase(Locale.ROOT)) {
+                    case "on" -> duels.traceOn(player);
+                    case "off" -> duels.traceOff(player);
+                    case "status" -> duels.traceStatus(player);
+                    default -> "Use /pvpbot trace on|off|status";
+                };
+                sender.sendMessage("\u00A7bTrace: \u00A7f" + message);
             }
             case "debug" -> {
                 Player target = args.length > 1 ? plugin.getServer().getPlayer(args[1])
@@ -111,7 +128,8 @@ public final class PvpBotCommand implements CommandExecutor, TabCompleter {
                                 + "atk=%d/%d/%d wd=%d last=%s str=%d sp=%s adapt=%.2f combo=%d/%d "
                                 + "vertical=%s kbLock=%d npcEntity=%s npcSpawned=%s arena=%d Seed:%d",
                         match.id().toString().substring(0, 8), match.state(), profile.name(), brain.distance(),
-                        profile.value("reach.blocks"), brain.cooldown(), brain.decision(), brain.perceptionAgeTicks(),
+                        profile.value("reach.blocks"), brain.cooldown(),
+                        brain.decision() + "/" + brain.decisionReason(), brain.perceptionAgeTicks(),
                         profile.millis("reaction.decisionMs"), profile.millis("reaction.decisionJitterMs"),
                         brain.decisionPlanAgeTicks(), brain.decisionTicksUntilUpdate(),
                         profile.millis("reaction.aimMs"), profile.millis("reaction.aimJitterMs"),
@@ -129,7 +147,8 @@ public final class PvpBotCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return List.of("help", "reload", "debug", "seed", "profile", "arena", "capabilities");
+        if (args.length == 1) return List.of("help", "reload", "debug", "seed", "trace", "profile", "arena", "capabilities");
+        if (args.length == 2 && args[0].equalsIgnoreCase("trace")) return List.of("on", "off", "status");
         if (args.length == 2 && args[0].equalsIgnoreCase("profile")) {
             return Arrays.stream(Difficulty.values()).map(Enum::name).toList();
         }

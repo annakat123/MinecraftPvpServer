@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.pvpbot"
-version = "1.0.10"
+version = "1.0.11"
 
 repositories {
     mavenCentral()
@@ -18,6 +18,7 @@ dependencies {
     }
     compileOnly("net.citizensnpcs:citizensapi:2.0.43-SNAPSHOT")
     implementation("org.xerial:sqlite-jdbc:3.53.1.0") { exclude(group = "org.slf4j") }
+    implementation("com.google.code.gson:gson:2.13.1")
     testImplementation(platform("org.junit:junit-bom:5.13.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.papermc.paper:paper-api:26.2.build.+")
@@ -30,6 +31,30 @@ java {
 }
 
 tasks.test { useJUnitPlatform() }
+
+tasks.register<JavaExec>("combatQa") {
+    group = "verification"
+    description = "Runs scripted combat QA, invariant negative controls and a bounded deterministic fuzz batch."
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dev.pvpbot.qa.CombatQaMain"
+    args("--mode=quick")
+    project.findProperty("qaSeed")?.let { args("--seed=$it") }
+    project.findProperty("qaScenario")?.let { args("--scenario=$it") }
+    project.findProperty("qaSeeds")?.let { args("--generated=$it") }
+}
+
+tasks.register<JavaExec>("combatQaExtended") {
+    group = "verification"
+    description = "Runs the extended deterministic combat fuzz suite."
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass = "dev.pvpbot.qa.CombatQaMain"
+    args("--mode=extended")
+    project.findProperty("qaSeed")?.let { args("--seed=$it") }
+    project.findProperty("qaScenario")?.let { args("--scenario=$it") }
+    project.findProperty("qaSeeds")?.let { args("--generated=$it") }
+}
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release = 25
